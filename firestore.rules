@@ -1,0 +1,46 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: analyses
+    // Document ID: auto-generated
+    // Fields:
+    //   - userId: string (required) - The UID of the owner
+    //   - createdAt: timestamp (required) - When the analysis was created
+    //   - info: map (required) - School metadata
+    //   - students: list (required) - List of student objects
+    //
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidAnalysis(data) {
+      return data.userId is string &&
+             data.createdAt is timestamp &&
+             data.info is map &&
+             data.students is list &&
+             data.students.size() <= 1000; // Limit list size
+    }
+
+    match /analyses/{analysisId} {
+      allow read: if isOwner(resource.data.userId);
+      allow create: if isAuthenticated() && 
+                      isValidAnalysis(request.resource.data) && 
+                      request.resource.data.userId == request.auth.uid;
+      allow update: if isOwner(resource.data.userId) && 
+                      isValidAnalysis(request.resource.data) &&
+                      request.resource.data.userId == resource.data.userId;
+      allow delete: if isOwner(resource.data.userId);
+    }
+  }
+}

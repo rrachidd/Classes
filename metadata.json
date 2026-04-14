@@ -1,0 +1,6 @@
+{
+  "name": "تحليل نتائج التلاميذ",
+  "description": "تطبيق لتحليل نتائج التلاميذ من ملفات Excel مع حفظ السجل وتصدير التقارير بصيغة PDF",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

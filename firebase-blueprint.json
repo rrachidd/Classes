@@ -1,0 +1,44 @@
+{
+  "entities": {
+    "Analysis": {
+      "title": "Analysis",
+      "description": "A student results analysis session",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "info": {
+          "type": "object",
+          "properties": {
+            "school": { "type": "string" },
+            "level": { "type": "string" },
+            "class": { "type": "string" },
+            "year": { "type": "string" },
+            "academy": { "type": "string" }
+          }
+        },
+        "students": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "gender": { "type": "string" },
+              "grade": { "type": "number" },
+              "rank": { "type": "number" }
+            }
+          }
+        }
+      },
+      "required": ["userId", "createdAt", "info", "students"]
+    }
+  },
+  "firestore": {
+    "/analyses/{analysisId}": {
+      "schema": "Analysis",
+      "description": "Collection of student result analyses"
+    }
+  }
+}
