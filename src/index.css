@@ -501,8 +501,9 @@ tbody td {
 @media print {
   @page { margin: 0; size: A4 portrait; }
   body * { visibility: hidden; }
-  #compSheet, #compSheet * { visibility: visible; }
-  #compSheet {
+  #compSheet, #compSheet *, #investSheet, #investSheet *, #councilSheet1, #councilSheet1 *, #councilSheet2, #councilSheet2 * { visibility: visible; }
+  .print-only { display: block !important; visibility: visible !important; }
+  #compSheet, #investSheet, #councilSheet1, #councilSheet2 {
     position: absolute;
     left: 0;
     top: 0;
@@ -538,10 +539,13 @@ tbody td {
   background: #cbd5e1;
 }
 
+.print-only { display: none; }
+
 @media print {
   @page { margin: 1cm; size: A4 landscape; }
   body { background: #fff; color: #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   header, #uploadSec, .tcontrols, .btn-new, .btn-print, #tcnt, #ld, .err-msg, .no-print { display: none !important; }
+  .print-only { display: block !important; }
   #resSec { display: block !important; padding: 0; margin: 0; max-width: 100%; }
   .sc, .cc, .tc, .ecard, .cc-wide, .s-info { box-shadow: none; border: 1px solid #ccc; break-inside: avoid; page-break-inside: avoid; margin-bottom: 15px; }
   .s-info { background: #eee !important; color: #000 !important; border: 2px solid #000; }
