@@ -92,7 +92,12 @@ const parseSheet = (rows: any[][]) => {
 
       // Academy / Delegation
       if ((c.includes('أكاديمية') || c.includes('جهة') || c.includes('المديرية الإقليمية') || c.includes('وزارة التربية')) && c.length < 100) {
-        info.academy = info.academy || c;
+        if (c.includes('المديرية الإقليمية')) {
+          const parts = c.split('المديرية الإقليمية');
+          info.academy = info.academy || parts[parts.length - 1].trim();
+        } else {
+          info.academy = info.academy || c;
+        }
       }
       
       // School Name
@@ -102,12 +107,31 @@ const parseSheet = (rows: any[][]) => {
 
       // Level / Year
       if ((c.includes('المستوى') || c.includes('السنة') || c.includes('جذع مشترك') || c.includes('باكالوريا') || c.includes('إعدادي') || c.includes('ثانوي')) && c.length < 80) {
-        // If it's a label like "المستوى :", try to get the next cell
+        let extractedLevel = '';
         if ((c === 'المستوى' || c === 'المستوى :' || c === 'السنة' || c === 'السنة :') && row[j+1]) {
-          info.level = info.level || String(row[j+1]).trim();
+          extractedLevel = String(row[j+1]).trim();
         } else {
-          info.level = info.level || c;
+          extractedLevel = c;
         }
+
+        // Normalize level names
+        if (extractedLevel.includes('1') || extractedLevel.includes('الأولى')) {
+          if (extractedLevel.includes('إعدادي')) extractedLevel = 'الأولى إعدادي';
+          else if (extractedLevel.includes('ابتدائي')) extractedLevel = 'الأولى ابتدائي';
+          else if (extractedLevel.includes('ثانوي')) extractedLevel = 'الأولى ثانوي';
+        } else if (extractedLevel.includes('2') || extractedLevel.includes('الثانية')) {
+          if (extractedLevel.includes('إعدادي')) extractedLevel = 'الثانية إعدادي';
+          else if (extractedLevel.includes('ابتدائي')) extractedLevel = 'الثانية ابتدائي';
+          else if (extractedLevel.includes('ثانوي')) extractedLevel = 'الثانية ثانوي';
+        } else if (extractedLevel.includes('3') || extractedLevel.includes('الثالثة')) {
+          if (extractedLevel.includes('إعدادي')) extractedLevel = 'الثالثة إعدادي';
+          else if (extractedLevel.includes('ابتدائي')) extractedLevel = 'الثالثة ابتدائي';
+          else if (extractedLevel.includes('ثانوي')) extractedLevel = 'الثالثة ثانوي';
+        } else if (extractedLevel.includes('جذع مشترك')) {
+          extractedLevel = 'جذع مشترك';
+        }
+
+        info.level = info.level || extractedLevel;
       }
 
       // School Year
@@ -199,6 +223,7 @@ const CouncilReport = ({ analysis, className, students, teachers, stats, page1Id
         <div className="border-b-2 border-slate-900 pb-6 mb-8 flex justify-between items-start">
           <div>
             <h1 className="text-2xl font-black text-slate-900 mb-2">محضر مجلس القسم - الصفحة 1</h1>
+            <p className="text-slate-600 font-bold">{analysis.info.academy}</p>
             <p className="text-slate-600 font-bold">{analysis.info.school}</p>
             <p className="text-slate-500">{analysis.info.level} - {className === 'all' ? 'جميع الأقسام' : className}</p>
           </div>
@@ -241,6 +266,7 @@ const CouncilReport = ({ analysis, className, students, teachers, stats, page1Id
         <div className="border-b-2 border-slate-900 pb-6 mb-8 flex justify-between items-start">
           <div>
             <h1 className="text-2xl font-black text-slate-900 mb-2">محضر مجلس القسم - الصفحة 2</h1>
+            <p className="text-slate-600 font-bold">{analysis.info.academy}</p>
             <p className="text-slate-600 font-bold">{analysis.info.school}</p>
             <p className="text-slate-500">{analysis.info.level} - {className === 'all' ? 'جميع الأقسام' : className}</p>
           </div>
@@ -1201,45 +1227,45 @@ export default function App() {
             <aside className="lg:w-64 shrink-0 no-print">
               <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 sticky top-24 space-y-4">
                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider px-2">أدوات التحليل</h3>
-                <nav className="space-y-1">
+                <nav className="space-y-2">
                   {classes.length > 1 && (
                     <button
                       onClick={() => setShowComparison(true)}
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium text-purple-600 hover:bg-purple-50 transition-all"
+                      className="sidebar-btn"
                     >
-                      <BarChart3 className="w-4 h-4" />
-                      مقارنة الأقسام
+                      <span className="btn-text">مقارنة الأقسام</span>
+                      <BarChart3 className="btn-icon" />
                     </button>
                   )}
                   <button
                     onClick={() => setShowInvestment(true)}
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium text-amber-600 hover:bg-amber-50 transition-all"
+                    className="sidebar-btn"
                   >
-                    <TrendingUp className="w-4 h-4" />
-                    استثمار النتائج
+                    <span className="btn-text">استثمار النتائج</span>
+                    <TrendingUp className="btn-icon" />
                   </button>
                   <button
                     onClick={() => setShowCouncilModal(true)}
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium text-emerald-600 hover:bg-emerald-50 transition-all"
+                    className="sidebar-btn"
                   >
-                    <Gavel className="w-4 h-4" />
-                    محاضر مجالس الأقسام
+                    <span className="btn-text">محاضر مجالس الأقسام</span>
+                    <Gavel className="btn-icon" />
                   </button>
                   {classes.length > 1 && (
                     <button
                       onClick={downloadAllCouncilsPDF}
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium text-blue-600 hover:bg-blue-50 transition-all"
+                      className="sidebar-btn"
                     >
-                      <Download className="w-4 h-4" />
-                      تحميل المحاضر الجماعية
+                      <span className="btn-text">تحميل المحاضر الجماعية</span>
+                      <Download className="btn-icon" />
                     </button>
                   )}
                   <button
                     onClick={downloadPDF}
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 transition-all"
+                    className="sidebar-btn"
                   >
-                    <Download className="w-4 h-4" />
-                    تحميل التقرير الحالي
+                    <span className="btn-text">تحميل التقرير الحالي</span>
+                    <Download className="btn-icon" />
                   </button>
                 </nav>
 
