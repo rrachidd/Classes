@@ -12,7 +12,7 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import { collection, addDoc, query, where, orderBy, onSnapshot, serverTimestamp, Timestamp, updateDoc, doc, getDocs } from 'firebase/firestore';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
-import { LogOut, User, FileText, Download, Trash2, Plus, History, Loader2, BarChart3, Users, CheckCircle2, XCircle, TrendingUp, Trophy, TrendingDown, ChevronRight, Gavel, ChevronDown } from 'lucide-react';
+import { LogOut, User, FileText, Download, Trash2, Plus, History, Loader2, BarChart3, Users, CheckCircle2, XCircle, TrendingUp, Trophy, TrendingDown, ChevronRight, Gavel, ChevronDown, Printer } from 'lucide-react';
 
 Chart.register(...registerables, ChartDataLabels);
 
@@ -319,7 +319,7 @@ const CouncilReport = ({ analysis, className, students, teachers, stats, contain
           </tr>
         ))}
         {/* Fill empty rows to keep tables aligned if needed */}
-        {Array.from({ length: Math.max(0, 25 - data.length) }).map((_, i) => (
+        {Array.from({ length: Math.max(0, 26 - data.length) }).map((_, i) => (
           <tr key={`empty-${i}`}>
             <td className="border border-slate-500 py-0.5 px-0.5 h-[4.2mm]"></td>
             <td className="border border-slate-500 py-0.5 px-1 h-[4.2mm]"></td>
@@ -352,10 +352,10 @@ const CouncilReport = ({ analysis, className, students, teachers, stats, contain
           
           <div className="flex-1 overflow-hidden flex gap-6">
             <div className="flex-1">
-              <StudentTable data={chunk.slice(0, 25)} startIndex={pageIdx * 50} />
+              <StudentTable data={chunk.slice(0, 24)} startIndex={pageIdx * 50} />
             </div>
             <div className="flex-1">
-              <StudentTable data={chunk.slice(25, 50)} startIndex={pageIdx * 50 + 25} />
+              <StudentTable data={chunk.slice(24, 50)} startIndex={pageIdx * 50 + 24} />
             </div>
           </div>
 
@@ -413,6 +413,7 @@ export default function App() {
   const [showInvestment, setShowInvestment] = useState(false);
   const [showCouncilModal, setShowCouncilModal] = useState(false);
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+  const [showTeachersTableModal, setShowTeachersTableModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
   
@@ -1186,6 +1187,25 @@ export default function App() {
     }, 1000);
   };
 
+  const downloadTeachersTablePDF = async () => {
+    const element = document.getElementById('teachers-table-sheet');
+    if (!element) return;
+    setLoading(true);
+    try {
+      const canvas = await html2canvas(element, { scale: 2 });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('l', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`جدول_أساتذة_المؤسسة.pdf`);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const updateTeachers = async (newTeachers: Teacher[]) => {
     if (!currentAnalysis || !currentAnalysis.id) return;
     try {
@@ -1352,6 +1372,13 @@ export default function App() {
                   >
                     <span className="btn-text">محاضر مجالس الأقسام</span>
                     <Gavel className="btn-icon" />
+                  </button>
+                  <button
+                    onClick={() => setShowTeachersTableModal(true)}
+                    className="sidebar-btn"
+                  >
+                    <span className="btn-text">أساتذة المؤسسة</span>
+                    <Users className="btn-icon" />
                   </button>
                   <button
                     onClick={() => setShowWhatsAppModal(true)}
@@ -2183,6 +2210,144 @@ export default function App() {
                   لا يوجد تلاميذ بمعدل أقل من 10 في هذا القسم.
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Delete Confirmation Modal */}
+      {showTeachersTableModal && currentAnalysis && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-[95vw] h-[90vh] flex flex-col overflow-hidden">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between no-print">
+              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                <Users className="w-5 h-5 text-blue-600" />
+                جدول أساتذة المؤسسة
+              </h2>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={downloadTeachersTablePDF}
+                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-all"
+                >
+                  <Download className="w-4 h-4" />
+                  تحميل PDF
+                </button>
+                <button
+                  onClick={() => window.print()}
+                  className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl text-sm font-medium transition-all"
+                >
+                  <Printer className="w-4 h-4" />
+                  طباعة
+                </button>
+                <button
+                  onClick={() => setShowTeachersTableModal(false)}
+                  className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400"
+                >
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-auto p-8 bg-slate-50">
+              <div 
+                id="teachers-table-sheet" 
+                className="mx-auto bg-white shadow-lg p-8 text-right flex flex-col" 
+                dir="rtl" 
+                style={{ 
+                  width: '297mm', 
+                  minHeight: '210mm',
+                  padding: '15mm'
+                }}
+              >
+                <div className="border-b-2 border-slate-900 pb-4 mb-6 flex justify-between items-start">
+                  <div>
+                    <h1 className="text-2xl font-black text-slate-900 mb-1">جدول أساتذة المواد حسب الأقسام</h1>
+                    <p className="text-sm text-slate-600 font-bold">{currentAnalysis.info.academy} | {currentAnalysis.info.school}</p>
+                    <p className="text-sm text-slate-500">السنة الدراسية: {currentAnalysis.info.year}</p>
+                  </div>
+                  <div className="text-left">
+                    <p className="text-xs text-slate-400">تاريخ الاستخراج: {new Date().toLocaleDateString('ar-MA')}</p>
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-x-auto">
+                  {(() => {
+                    const activeSubjects = Array.from(new Set([
+                      ...DEFAULT_SUBJECTS.filter(s => (currentAnalysis.teachers || []).some(t => t.subject === s && t.name.trim() !== '')),
+                      ...(currentAnalysis.teachers || []).filter(t => !DEFAULT_SUBJECTS.includes(t.subject) && t.name.trim() !== '').map(t => t.subject)
+                    ]));
+
+                    if (activeSubjects.length === 0) {
+                      return (
+                        <div className="text-center py-20 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
+                          <Users className="w-12 h-12 mx-auto mb-4 text-slate-300 opacity-20" />
+                          <p className="text-slate-400 font-medium">لم يتم إدخال أي أساتذة بعد.</p>
+                          <p className="text-xs text-slate-400 mt-2">يرجى إدخال أسماء الأساتذة في صفحة النتائج لكل قسم لتظهر هنا.</p>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <table className="w-full border-collapse border-2 border-slate-800 text-[10px]">
+                        <thead>
+                          <tr className="bg-slate-100">
+                            <th className="border-2 border-slate-800 p-2 w-24 bg-slate-200">القسم / المادة</th>
+                            {activeSubjects.map(subject => (
+                              <th 
+                                key={subject} 
+                                className={`border-2 border-slate-800 p-2 text-center font-bold ${subject === 'الرياضيات' ? 'min-w-[150px]' : 'min-w-[100px]'}`}
+                              >
+                                {subject}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {classes.map(cls => (
+                            <tr key={cls} className="hover:bg-slate-50 transition-colors">
+                              <td className="border-2 border-slate-800 p-2 font-black bg-slate-50 text-center">{cls}</td>
+                              {activeSubjects.map(subject => {
+                                const teacher = (currentAnalysis.teachers || []).find(t => t.className === cls && t.subject === subject);
+                                return (
+                                  <td 
+                                    key={subject} 
+                                    className={`border-2 border-slate-800 p-1 text-center ${subject === 'الرياضيات' ? 'min-w-[150px]' : 'min-w-[100px]'}`}
+                                  >
+                                    <input
+                                      type="text"
+                                      defaultValue={teacher?.name || ''}
+                                      onBlur={(e) => {
+                                        const newName = e.target.value;
+                                        const currentTeachers = currentAnalysis.teachers || [];
+                                        let updatedTeachers;
+                                        
+                                        const existingIdx = currentTeachers.findIndex(t => t.className === cls && t.subject === subject);
+                                        if (existingIdx > -1) {
+                                          updatedTeachers = [...currentTeachers];
+                                          updatedTeachers[existingIdx] = { ...updatedTeachers[existingIdx], name: newName };
+                                        } else {
+                                          updatedTeachers = [...currentTeachers, { className: cls, subject, name: newName }];
+                                        }
+                                        updateTeachers(updatedTeachers);
+                                      }}
+                                      className="w-full bg-transparent border-none outline-none text-center focus:bg-blue-50 p-1"
+                                      placeholder="..."
+                                    />
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    );
+                  })()}
+                </div>
+
+                <div className="mt-8 pt-4 border-t border-slate-200 flex justify-between items-center text-sm font-bold text-slate-700">
+                  <p>توقيع السيد المدير</p>
+                  <p>خاتم المؤسسة</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
