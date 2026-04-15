@@ -30,6 +30,7 @@ interface Student {
   grade: number | null;
   rank?: number;
   className?: string;
+  phone?: string;
 }
 
 interface AnalysisInfo {
@@ -75,6 +76,14 @@ const parseGrade = (v: any) => {
   const s = String(v).trim().replace(',', '.');
   const n = parseFloat(s);
   return (!isNaN(n) && n >= 0 && n <= 20) ? Math.round(n * 100) / 100 : null;
+};
+
+const chunkArray = <T,>(arr: T[], size: number): T[][] => {
+  const chunks: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    chunks.push(arr.slice(i, i + size));
+  }
+  return chunks;
 };
 
 const parseSheet = (rows: any[][]) => {
@@ -169,9 +178,11 @@ const parseSheet = (rows: any[][]) => {
     if (!name) continue;
 
     let gender = '';
+    let phone = '';
     for (const cell of row) {
       const c = String(cell).trim();
-      if (c === 'ذكر' || c === 'أنثى') { gender = c; break; }
+      if (c === 'ذكر' || c === 'أنثى') { gender = c; }
+      if (/^(06|07)\d{8}$/.test(c)) { phone = c; }
     }
 
     let grade = null;
@@ -195,83 +206,90 @@ const parseSheet = (rows: any[][]) => {
 
     const existing = students.find(s => s.id === id);
     if (!existing) {
-      students.push({ id, name, gender, grade, className: sClass });
+      students.push({ id, name, gender, grade, className: sClass, phone });
     } else {
       if (grade !== null && existing.grade === null) existing.grade = grade;
       if (gender && !existing.gender) existing.gender = gender;
       if (sClass && !existing.className) existing.className = sClass;
+      if (phone && !existing.phone) existing.phone = phone;
     }
   }
 
   return { info, students };
 };
 
-// Council Report Component for PDF Generation
-const CouncilReport = ({ analysis, className, students, teachers, stats, page1Id, page2Id }: { 
+const CouncilReport = ({ analysis, className, students, teachers, stats, containerId }: { 
   analysis: Analysis, 
   className: string, 
   students: Student[], 
   teachers: Teacher[], 
   stats: any,
-  page1Id?: string,
-  page2Id?: string
+  containerId?: string
 }) => {
+  const studentChunks = chunkArray(students, 50); // Increased to 50 to fit more students on one page
+  const totalStudentPages = studentChunks.length;
+
   return (
-    <div className="space-y-12">
-      {/* Page 1: Students List */}
-      <div id={page1Id} className="a4-sheet mx-auto bg-white shadow-lg p-10 text-right" dir="rtl">
-        <div className="border-b-2 border-slate-900 pb-6 mb-8 flex justify-between items-start">
-          <div>
-            <h1 className="text-2xl font-black text-slate-900 mb-2">محضر مجلس القسم - الصفحة 1</h1>
-            <p className="text-slate-600 font-bold">{analysis.info.academy}</p>
-            <p className="text-slate-600 font-bold">{analysis.info.school}</p>
-            <p className="text-slate-500">{analysis.info.level} - {className === 'all' ? 'جميع الأقسام' : className}</p>
+    <div id={containerId} className="space-y-12">
+      {studentChunks.map((chunk, pageIdx) => (
+        <div key={pageIdx} className="a4-sheet mx-auto bg-white shadow-lg p-8 text-right" dir="rtl">
+          <div className="border-b-2 border-slate-900 pb-4 mb-6 flex justify-between items-start">
+            <div>
+              <h1 className="text-xl font-black text-slate-900 mb-1">محضر مجلس القسم - لائحة التلاميذ</h1>
+              <p className="text-xs text-slate-600 font-bold">{analysis.info.academy}</p>
+              <p className="text-xs text-slate-600 font-bold">{analysis.info.school}</p>
+              <p className="text-xs text-slate-500">{analysis.info.level} - {className === 'all' ? 'جميع الأقسام' : className}</p>
+            </div>
+            <div className="text-left">
+              <p className="text-xs text-slate-400">السنة الدراسية: {analysis.info.year}</p>
+              <p className="text-xs text-slate-400">عدد التلاميذ: {stats.n}</p>
+              <p className="text-[10px] text-slate-400 mt-1">صفحة {pageIdx + 1} من {totalStudentPages + 1}</p>
+            </div>
           </div>
-          <div className="text-left">
-            <p className="text-sm text-slate-400">السنة الدراسية: {analysis.info.year}</p>
-            <p className="text-sm text-slate-400">عدد التلاميذ: {stats.n}</p>
+
+          <h3 className="text-sm font-bold mb-3 text-slate-800 border-r-4 border-emerald-500 pr-3">لائحة نتائج التلاميذ وقرارات المجلس:</h3>
+          <table className="w-full border-collapse border border-slate-300 text-[11px]">
+            <thead>
+              <tr className="bg-slate-50">
+                <th className="border border-slate-300 p-1 text-center w-10">الرقم</th>
+                <th className="border border-slate-300 p-1 text-right">الاسم والنسب</th>
+                <th className="border border-slate-300 p-1 text-center w-14">الجنس</th>
+                <th className="border border-slate-300 p-1 text-center w-16">المعدل</th>
+                <th className="border border-slate-300 p-1 text-right">قرار المجلس / ملاحظات</th>
+              </tr>
+            </thead>
+            <tbody>
+              {chunk.map((s, idx) => (
+                <tr key={s.id} className="hover:bg-slate-50">
+                  <td className="border border-slate-300 p-1 text-center">{pageIdx * 50 + idx + 1}</td>
+                  <td className="border border-slate-300 p-1 font-medium">{s.name}</td>
+                  <td className="border border-slate-300 p-1 text-center">{s.gender}</td>
+                  <td className="border border-slate-300 p-1 text-center font-bold">{s.grade?.toFixed(2) || '—'}</td>
+                  <td className="border border-slate-300 p-1 text-[10px] italic text-slate-500">
+                    {s.grade && s.grade >= 10 ? 'ينتقل' : 'يكرر'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="mt-4 text-left text-[10px] text-slate-400 italic">
+            * تم ترتيب التلاميذ حسب الاستحقاق (المعدل)
           </div>
         </div>
+      ))}
 
-        <h3 className="font-bold mb-4 text-slate-800 border-r-4 border-emerald-500 pr-3">لائحة نتائج التلاميذ وقرارات المجلس:</h3>
-        <table className="w-full border-collapse border border-slate-300 text-sm">
-          <thead>
-            <tr className="bg-slate-100">
-              <th className="border border-slate-300 p-2 text-center w-12">الرقم</th>
-              <th className="border border-slate-300 p-2 text-right">الاسم والنسب</th>
-              <th className="border border-slate-300 p-2 text-center w-16">الجنس</th>
-              <th className="border border-slate-300 p-2 text-center w-20">المعدل</th>
-              <th className="border border-slate-300 p-2 text-right">قرار المجلس / ملاحظات</th>
-            </tr>
-          </thead>
-          <tbody>
-            {students.map((s, idx) => (
-              <tr key={s.id}>
-                <td className="border border-slate-300 p-2 text-center">{idx + 1}</td>
-                <td className="border border-slate-300 p-2 font-medium">{s.name}</td>
-                <td className="border border-slate-300 p-2 text-center">{s.gender}</td>
-                <td className="border border-slate-300 p-2 text-center font-bold">{s.grade?.toFixed(2) || '—'}</td>
-                <td className="border border-slate-300 p-2 text-xs italic text-slate-400">
-                  {s.grade && s.grade >= 10 ? 'ينتقل' : 'يكرر'}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <div className="mt-8 text-left text-xs text-slate-400">الصفحة 1 من 2</div>
-      </div>
-
-      {/* Page 2: Stats & Teachers */}
-      <div id={page2Id} className="a4-sheet mx-auto bg-white shadow-lg p-10 text-right" dir="rtl">
+      {/* Final Page: Stats & Teachers */}
+      <div className="a4-sheet mx-auto bg-white shadow-lg p-10 text-right" dir="rtl">
         <div className="border-b-2 border-slate-900 pb-6 mb-8 flex justify-between items-start">
           <div>
-            <h1 className="text-2xl font-black text-slate-900 mb-2">محضر مجلس القسم - الصفحة 2</h1>
+            <h1 className="text-2xl font-black text-slate-900 mb-2">محضر مجلس القسم - الإحصائيات والقرارات</h1>
             <p className="text-slate-600 font-bold">{analysis.info.academy}</p>
             <p className="text-slate-600 font-bold">{analysis.info.school}</p>
             <p className="text-slate-500">{analysis.info.level} - {className === 'all' ? 'جميع الأقسام' : className}</p>
           </div>
           <div className="text-left">
             <p className="text-sm text-slate-400">تاريخ الاجتماع: {new Date().toLocaleDateString('ar-MA')}</p>
+            <p className="text-xs text-slate-400 mt-1">صفحة {totalStudentPages + 1} من {totalStudentPages + 1}</p>
           </div>
         </div>
 
@@ -334,7 +352,6 @@ const CouncilReport = ({ analysis, className, students, teachers, stats, page1Id
         <div className="mt-12 pt-8 border-t border-slate-200 flex justify-between items-center text-sm text-slate-400">
           <p>توقيع السيد المدير</p>
           <p>توقيع الحارس العام</p>
-          <p>الصفحة 2 من 2</p>
         </div>
       </div>
     </div>
@@ -350,6 +367,8 @@ export default function App() {
   const [showComparison, setShowComparison] = useState(false);
   const [showInvestment, setShowInvestment] = useState(false);
   const [showCouncilModal, setShowCouncilModal] = useState(false);
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
   
   // Filters
@@ -587,14 +606,15 @@ export default function App() {
       });
 
       // 4. Update teachers - remove teachers of the deleted class
-      const remainingTeachers = (currentAnalysis.teachers || []).filter(t => t.className !== target);
+      const remainingTeachers = (currentAnalysis.teachers || []).filter(t => (t.className || '').trim() !== target);
 
       // 5. Update Firestore
       if (currentAnalysis.id) {
         await updateDoc(doc(db, 'analyses', currentAnalysis.id), {
           info: newInfo,
           students: remainingStudents,
-          teachers: remainingTeachers
+          teachers: remainingTeachers,
+          updatedAt: serverTimestamp()
         });
       }
       
@@ -817,18 +837,52 @@ export default function App() {
   // PDF Export
   const downloadPDF = async () => {
     const element = document.getElementById('resSec');
-    if (!element) return;
+    if (!element || !currentAnalysis) return;
     setLoading(true);
     try {
-      const canvas = await html2canvas(element, { scale: 2 });
+      // Temporarily hide elements with no-print class
+      const noPrintElements = element.querySelectorAll('.no-print');
+      noPrintElements.forEach(el => (el as HTMLElement).style.display = 'none');
+
+      // Use a fixed width for the capture to ensure consistent layout
+      const originalWidth = element.style.width;
+      element.style.width = '1200px';
+
+      const canvas = await html2canvas(element, { 
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        windowWidth: 1200
+      });
+
+      // Restore original width and display
+      element.style.width = originalWidth;
+      noPrintElements.forEach(el => (el as HTMLElement).style.display = '');
+
       const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('l', 'mm', 'a4');
-      const imgProps = pdf.getImageProperties(imgData);
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      const fileName = selectedClass === 'all' ? (currentAnalysis?.info.class || 'تلاميذ') : selectedClass;
-      pdf.save(`تحليل_نتائج_${fileName}.pdf`);
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      
+      const imgWidth = 210; // A4 width in mm
+      const pageHeight = 297; // A4 height in mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      // Add first page
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      // Add subsequent pages if content is longer than one page
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      const fileName = selectedClass === 'all' ? (currentAnalysis.info.class || 'تلاميذ') : selectedClass;
+      pdf.save(`تقرير_تحليل_نتائج_${fileName}.pdf`);
     } catch (err) {
       console.error(err);
     } finally {
@@ -1009,27 +1063,22 @@ export default function App() {
   };
 
   const downloadCouncilPDF = async () => {
-    const element1 = document.getElementById('councilSheet1');
-    const element2 = document.getElementById('councilSheet2');
-    if (!element1 || !element2) return;
+    const container = document.getElementById('councilSheetContainer');
+    if (!container) return;
     setLoading(true);
     try {
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
-
-      // Page 1
-      const canvas1 = await html2canvas(element1, { scale: 2 });
-      const imgData1 = canvas1.toDataURL('image/png');
-      const pdfHeight1 = (canvas1.height * pdfWidth) / canvas1.width;
-      pdf.addImage(imgData1, 'PNG', 0, 0, pdfWidth, pdfHeight1);
-
-      pdf.addPage();
-
-      // Page 2
-      const canvas2 = await html2canvas(element2, { scale: 2 });
-      const imgData2 = canvas2.toDataURL('image/png');
-      const pdfHeight2 = (canvas2.height * pdfWidth) / canvas2.width;
-      pdf.addImage(imgData2, 'PNG', 0, 0, pdfWidth, pdfHeight2);
+      const pages = container.querySelectorAll('.a4-sheet');
+      
+      for (let i = 0; i < pages.length; i++) {
+        if (i > 0) pdf.addPage();
+        const pageEl = pages[i] as HTMLElement;
+        const canvas = await html2canvas(pageEl, { scale: 2 });
+        const imgData = canvas.toDataURL('image/png');
+        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      }
 
       pdf.save(`محضر_مجلس_القسم_${selectedClass === 'all' ? 'المؤسسة' : selectedClass}.pdf`);
     } catch (err) {
@@ -1052,26 +1101,20 @@ export default function App() {
 
         for (let i = 0; i < classes.length; i++) {
           const c = classes[i];
-          const el1 = document.getElementById(`all-council-1-${c}`);
-          const el2 = document.getElementById(`all-council-2-${c}`);
+          const container = document.getElementById(`all-council-container-${c}`);
+          if (!container) continue;
+
+          const pages = container.querySelectorAll('.a4-sheet');
           
-          if (!el1 || !el2) continue;
-
-          if (i > 0) pdf.addPage();
-          
-          // Page 1
-          const canvas1 = await html2canvas(el1, { scale: 2 });
-          const imgData1 = canvas1.toDataURL('image/png');
-          const pdfHeight1 = (canvas1.height * pdfWidth) / canvas1.width;
-          pdf.addImage(imgData1, 'PNG', 0, 0, pdfWidth, pdfHeight1);
-
-          pdf.addPage();
-
-          // Page 2
-          const canvas2 = await html2canvas(el2, { scale: 2 });
-          const imgData2 = canvas2.toDataURL('image/png');
-          const pdfHeight2 = (canvas2.height * pdfWidth) / canvas2.width;
-          pdf.addImage(imgData2, 'PNG', 0, 0, pdfWidth, pdfHeight2);
+          for (let j = 0; j < pages.length; j++) {
+            if (i > 0 || j > 0) pdf.addPage();
+            
+            const pageEl = pages[j] as HTMLElement;
+            const canvas = await html2canvas(pageEl, { scale: 2 });
+            const imgData = canvas.toDataURL('image/png');
+            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+          }
         }
 
         pdf.save(`محاضر_مجالس_الأقسام_الجماعية.pdf`);
@@ -1251,6 +1294,13 @@ export default function App() {
                     <span className="btn-text">محاضر مجالس الأقسام</span>
                     <Gavel className="btn-icon" />
                   </button>
+                  <button
+                    onClick={() => setShowWhatsAppModal(true)}
+                    className="sidebar-btn"
+                  >
+                    <span className="btn-text">إشعار الواتساب (&lt;10)</span>
+                    <Download className="btn-icon" />
+                  </button>
                   {classes.length > 1 && (
                     <button
                       onClick={downloadAllCouncilsPDF}
@@ -1359,11 +1409,7 @@ export default function App() {
               {selectedClass !== 'all' && (
                 <div className="flex justify-end">
                   <button
-                    onClick={() => {
-                      if (window.confirm(`هل أنت متأكد من حذف القسم "${selectedClass}"؟`)) {
-                        removeClass(selectedClass);
-                      }
-                    }}
+                    onClick={() => setShowDeleteConfirm(selectedClass)}
                     className="btn-remove-class"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -1937,8 +1983,7 @@ export default function App() {
                 students={filteredStudents}
                 teachers={(currentAnalysis.teachers || []).filter(t => selectedClass === 'all' || t.className === selectedClass)}
                 stats={stats}
-                page1Id="councilSheet1"
-                page2Id="councilSheet2"
+                containerId="councilSheetContainer"
               />
             </div>
           </div>
@@ -1973,12 +2018,116 @@ export default function App() {
                   students={sortedStudents}
                   teachers={classTeachers}
                   stats={classStats}
-                  page1Id={`all-council-1-${c}`}
-                  page2Id={`all-council-2-${c}`}
+                  containerId={`all-council-inner-${c}`}
                 />
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* WhatsApp Notification Modal */}
+      {showWhatsAppModal && currentAnalysis && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                <Download className="w-5 h-5 text-green-600" />
+                إشعار أولياء الأمور (واتساب)
+              </h2>
+              <button onClick={() => setShowWhatsAppModal(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                <XCircle className="w-6 h-6 text-slate-400" />
+              </button>
+            </div>
+            
+            <div className="p-4 bg-amber-50 text-amber-800 text-sm rounded-lg m-4 border border-amber-100">
+              سيتم عرض التلاميذ الذين حصلوا على معدل أقل من 10. يمكنك النقر على زر الإرسال لفتح محادثة واتساب مع ولي الأمر.
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+              {currentAnalysis.students
+                .filter(s => s.grade !== null && s.grade < 10 && (selectedClass === 'all' || s.className === selectedClass))
+                .sort((a, b) => (a.grade || 0) - (b.grade || 0))
+                .map(s => (
+                  <div key={s.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100 hover:border-green-200 transition-colors">
+                    <div>
+                      <div className="font-bold text-slate-800">{s.name}</div>
+                      <div className="text-xs text-slate-500 flex gap-2">
+                        <span>القسم: {s.className}</span>
+                        <span className="text-red-500 font-bold">المعدل: {s.grade?.toFixed(2)}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input 
+                        type="tel" 
+                        placeholder="رقم الهاتف..." 
+                        defaultValue={s.phone || ''}
+                        className="text-xs border border-slate-200 rounded-lg px-2 py-1 w-28 outline-none focus:border-green-400"
+                        onBlur={(e) => {
+                          const val = e.target.value.trim();
+                          if (val) {
+                            const updatedStudents = currentAnalysis.students.map(st => 
+                              st.id === s.id ? { ...st, phone: val } : st
+                            );
+                            setCurrentAnalysis({ ...currentAnalysis, students: updatedStudents });
+                            // Optionally update Firestore here
+                          }
+                        }}
+                      />
+                      <button 
+                        onClick={() => {
+                          const phone = s.phone || '';
+                          const msg = `السلام عليكم، نخبركم أن ابنكم(تكم) ${s.name} قد حصل على معدل ${s.grade?.toFixed(2)} في نتائج الدورة الحالية. المرجو منكم زيارة المؤسسة لمناقشة سبل تحسين مستواه الدراسي.`;
+                          const url = `https://wa.me/${phone.startsWith('0') ? '212' + phone.substring(1) : phone}?text=${encodeURIComponent(msg)}`;
+                          window.open(url, '_blank');
+                        }}
+                        className="bg-green-600 hover:bg-green-700 text-white p-2 rounded-lg transition-colors"
+                        title="إرسال رسالة واتساب"
+                      >
+                        <Download className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              {currentAnalysis.students.filter(s => s.grade !== null && s.grade < 10 && (selectedClass === 'all' || s.className === selectedClass)).length === 0 && (
+                <div className="text-center py-10 text-slate-400 italic">
+                  لا يوجد تلاميذ بمعدل أقل من 10 في هذا القسم.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 text-right" dir="rtl">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Trash2 className="w-8 h-8 text-red-600" />
+            </div>
+            <h3 className="text-xl font-bold text-slate-900 mb-2 text-center">تأكيد حذف القسم</h3>
+            <p className="text-slate-500 mb-8 text-center">
+              هل أنت متأكد من حذف القسم <span className="font-bold text-slate-900">"{showDeleteConfirm}"</span>؟ 
+              سيتم حذف جميع التلاميذ والأساتذة المرتبطين بهذا القسم بشكل نهائي.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  removeClass(showDeleteConfirm);
+                  setShowDeleteConfirm(null);
+                }}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl transition-all shadow-sm"
+              >
+                تأكيد الحذف
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(null)}
+                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 rounded-xl transition-all"
+              >
+                إلغاء
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

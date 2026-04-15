@@ -660,15 +660,20 @@ tbody td {
 .print-only { display: none; }
 
 @media print {
-  @page { margin: 1cm; size: A4 landscape; }
+  @page { margin: 1.5cm; size: A4 portrait; }
   body { background: #fff; color: #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  header, #uploadSec, .tcontrols, .btn-new, .btn-print, #tcnt, #ld, .err-msg, .no-print { display: none !important; }
+  header, #uploadSec, .tcontrols, .btn-new, .btn-print, #tcnt, #ld, .err-msg, .no-print, aside { display: none !important; }
   .print-only { display: block !important; }
-  #resSec { display: block !important; padding: 0; margin: 0; max-width: 100%; }
-  .sc, .cc, .tc, .ecard, .cc-wide, .s-info { box-shadow: none; border: 1px solid #ccc; break-inside: avoid; page-break-inside: avoid; margin-bottom: 15px; }
-  .s-info { background: #eee !important; color: #000 !important; border: 2px solid #000; }
-  table { font-size: 10pt; border: 1px solid #ccc; width: 100%; }
-  thead th { background: #f0f0f0 !important; color: #000 !important; border: 1px solid #ccc; }
-  tbody td { border: 1px solid #eee; color: #000; }
+  #resSec { display: block !important; padding: 0; margin: 0; max-width: 100%; width: 100% !important; }
+  .sc, .cc, .tc, .ecard, .cc-wide, .s-info { box-shadow: none; border: 1px solid #e2e8f0; break-inside: avoid; page-break-inside: avoid; margin-bottom: 20px; border-radius: 8px; }
+  .s-info { background: #f8fafc !important; color: #0f172a !important; border: 1px solid #cbd5e1; display: grid; grid-template-cols: repeat(2, 1fr); gap: 10px; padding: 15px; }
+  .s-item { border: none !important; padding: 5px !important; }
+  .lbl { color: #64748b !important; font-size: 9pt; }
+  .val { color: #0f172a !important; font-size: 11pt; font-weight: bold; }
+  table { font-size: 9pt; border: 1px solid #e2e8f0; width: 100%; border-collapse: collapse; }
+  thead th { background: #f1f5f9 !important; color: #475569 !important; border: 1px solid #e2e8f0; padding: 8px; }
+  tbody td { border: 1px solid #f1f5f9; color: #1e293b; padding: 8px; }
   canvas { max-width: 100%; height: auto !important; }
+  .grid { display: block !important; }
+  .grid > div { margin-bottom: 20px; width: 100% !important; }
 }
