@@ -229,6 +229,47 @@ const parseSheet = (rows: any[][]) => {
   return { info, students };
 };
 
+const OfficialHeader = ({ academy, school, year, level, title, pageInfo }: { 
+  academy: string, 
+  school: string, 
+  year: string, 
+  level: string, 
+  title?: string,
+  pageInfo?: string
+}) => (
+  <div className="w-full mb-6 shrink-0" dir="rtl">
+    <div className="border-2 border-slate-800 p-2 text-center relative">
+      <h2 className="text-lg font-black mb-0.5">المملكة المغربية</h2>
+      <p className="text-[11px] font-bold mb-0.5">وزارة التربية الوطنية والتعليم الأولي والرياضة</p>
+      <p className="text-[11px] font-bold">{academy}</p>
+      {pageInfo && (
+        <div className="absolute left-2 bottom-2 text-[9px] text-slate-400 no-print">
+          {pageInfo}
+        </div>
+      )}
+    </div>
+    <div className="grid grid-cols-3 border-x-2 border-b-2 border-slate-800 text-[10px] font-bold">
+      <div className="border-l-2 border-slate-800 p-1.5 flex items-center justify-center gap-1">
+        <span>المؤسسة:</span>
+        <span className="font-black truncate">{school}</span>
+      </div>
+      <div className="border-l-2 border-slate-800 p-1.5 flex items-center justify-center gap-1">
+        <span>السنة الدراسية:</span>
+        <span className="font-black">{year}</span>
+      </div>
+      <div className="p-1.5 flex items-center justify-center gap-1">
+        <span>المستوى:</span>
+        <span className="font-black truncate">{level}</span>
+      </div>
+    </div>
+    {title && (
+      <div className="mt-4 text-center">
+        <h1 className="text-lg font-black underline decoration-2 underline-offset-8">{title}</h1>
+      </div>
+    )}
+  </div>
+);
+
 const CouncilReport = ({ analysis, className, students, teachers, stats, containerId }: { 
   analysis: Analysis, 
   className: string, 
@@ -237,7 +278,7 @@ const CouncilReport = ({ analysis, className, students, teachers, stats, contain
   stats: any,
   containerId?: string
 }) => {
-  const studentChunks = chunkArray(students, 50);
+  const studentChunks = chunkArray(students, 48);
   const totalStudentPages = studentChunks.length;
 
   const StatsSection = () => (
@@ -297,7 +338,7 @@ const CouncilReport = ({ analysis, className, students, teachers, stats, contain
     </div>
   );
 
-  const StudentTable = ({ data, startIndex }: { data: Student[], startIndex: number }) => (
+  const StudentTable = ({ data, startIndex, targetRows = 26 }: { data: Student[], startIndex: number, targetRows?: number }) => (
     <table className="w-full border-collapse border border-slate-500 text-[8px] leading-tight">
       <thead>
         <tr className="bg-slate-100">
@@ -319,7 +360,7 @@ const CouncilReport = ({ analysis, className, students, teachers, stats, contain
           </tr>
         ))}
         {/* Fill empty rows to keep tables aligned if needed */}
-        {Array.from({ length: Math.max(0, 26 - data.length) }).map((_, i) => (
+        {Array.from({ length: Math.max(0, targetRows - data.length) }).map((_, i) => (
           <tr key={`empty-${i}`}>
             <td className="border border-slate-500 py-0.5 px-0.5 h-[4.2mm]"></td>
             <td className="border border-slate-500 py-0.5 px-1 h-[4.2mm]"></td>
@@ -335,27 +376,23 @@ const CouncilReport = ({ analysis, className, students, teachers, stats, contain
     <div id={containerId} className="bg-slate-100 p-4 space-y-8">
       {studentChunks.map((chunk, pageIdx) => (
         <div key={pageIdx} className="a4-sheet mx-auto bg-white shadow-lg p-6 text-right flex flex-col" dir="rtl" style={{ height: '297mm', width: '210mm', overflow: 'hidden' }}>
-          <div className="border-b-2 border-slate-900 pb-2 mb-4 flex justify-between items-start shrink-0">
-            <div>
-              <h1 className="text-lg font-black text-slate-900 mb-1">محضر مجلس القسم - لائحة التلاميذ</h1>
-              <p className="text-[10px] text-slate-700 font-bold leading-none">{analysis.info.academy} | {analysis.info.school}</p>
-              <p className="text-[10px] text-slate-600 leading-none mt-1">{analysis.info.level} - {className === 'all' ? 'جميع الأقسام' : className}</p>
-            </div>
-            <div className="text-left shrink-0">
-              <p className="text-[10px] text-slate-500 leading-none">السنة الدراسية: {analysis.info.year}</p>
-              <p className="text-[10px] text-slate-500 leading-none mt-1">عدد التلاميذ: {stats.n}</p>
-              <p className="text-[9px] text-slate-400 mt-1">صفحة {pageIdx + 1} من {totalStudentPages + 1}</p>
-            </div>
-          </div>
+          <OfficialHeader 
+            academy={analysis.info.academy}
+            school={analysis.info.school}
+            year={analysis.info.year}
+            level={`${analysis.info.level} - ${className === 'all' ? 'جميع الأقسام' : className}`}
+            title="محضر مجلس القسم - لائحة التلاميذ"
+            pageInfo={`صفحة ${pageIdx + 1} من ${totalStudentPages + 1}`}
+          />
 
           <h3 className="text-[11px] font-bold mb-3 text-slate-800 border-r-4 border-emerald-500 pr-2 shrink-0">نتائج التلاميذ وقرارات المجلس:</h3>
           
           <div className="flex-1 overflow-hidden flex gap-6">
             <div className="flex-1">
-              <StudentTable data={chunk.slice(0, 24)} startIndex={pageIdx * 50} />
+              <StudentTable data={chunk.slice(0, 22)} startIndex={pageIdx * 48} targetRows={22} />
             </div>
             <div className="flex-1">
-              <StudentTable data={chunk.slice(24, 50)} startIndex={pageIdx * 50 + 24} />
+              <StudentTable data={chunk.slice(22, 48)} startIndex={pageIdx * 48 + 22} targetRows={26} />
             </div>
           </div>
 
@@ -371,18 +408,14 @@ const CouncilReport = ({ analysis, className, students, teachers, stats, contain
       ))}
 
       <div className="a4-sheet mx-auto bg-white shadow-lg p-10 text-right flex flex-col" dir="rtl" style={{ height: '297mm', width: '210mm', overflow: 'hidden' }}>
-        <div className="border-b-2 border-slate-900 pb-6 mb-8 flex justify-between items-start shrink-0">
-          <div>
-            <h1 className="text-2xl font-black text-slate-900 mb-2">محضر مجلس القسم - الإحصائيات والقرارات</h1>
-            <p className="text-slate-600 font-bold">{analysis.info.academy}</p>
-            <p className="text-slate-600 font-bold">{analysis.info.school}</p>
-            <p className="text-slate-500">{analysis.info.level} - {className === 'all' ? 'جميع الأقسام' : className}</p>
-          </div>
-          <div className="text-left shrink-0">
-            <p className="text-sm text-slate-400">تاريخ الاجتماع: {new Date().toLocaleDateString('ar-MA')}</p>
-            <p className="text-xs text-slate-400 mt-1">صفحة {totalStudentPages + 1} من {totalStudentPages + 1}</p>
-          </div>
-        </div>
+        <OfficialHeader 
+          academy={analysis.info.academy}
+          school={analysis.info.school}
+          year={analysis.info.year}
+          level={`${analysis.info.level} - ${className === 'all' ? 'جميع الأقسام' : className}`}
+          title="محضر مجلس القسم - الإحصائيات والقرارات"
+          pageInfo={`صفحة ${totalStudentPages + 1} من ${totalStudentPages + 1}`}
+        />
 
         <div className="flex-1">
           <StatsSection />
@@ -1838,17 +1871,13 @@ export default function App() {
 
             <div className="p-8 bg-slate-50 overflow-x-auto">
               <div id="compSheet" className="a4-sheet mx-auto bg-white shadow-lg p-10 text-right" dir="rtl">
-                <div className="border-b-2 border-slate-900 pb-6 mb-8 flex justify-between items-start">
-                  <div>
-                    <h1 className="text-2xl font-black text-slate-900 mb-2">تقرير مقارنة نتائج الأقسام</h1>
-                    <p className="text-slate-600 font-bold">{currentAnalysis.info.school}</p>
-                    <p className="text-slate-500">{currentAnalysis.info.level} - {currentAnalysis.info.year}</p>
-                  </div>
-                  <div className="text-left">
-                    <p className="text-sm text-slate-400">تاريخ التقرير: {new Date().toLocaleDateString('ar-MA')}</p>
-                    <p className="text-sm text-slate-400">عدد الأقسام: {classes.length}</p>
-                  </div>
-                </div>
+                <OfficialHeader 
+                  academy={currentAnalysis.info.academy}
+                  school={currentAnalysis.info.school}
+                  year={currentAnalysis.info.year}
+                  level={currentAnalysis.info.level}
+                  title="تقرير مقارنة نتائج الأقسام"
+                />
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
                   <div className="cc border border-slate-200 shadow-none">
@@ -1955,17 +1984,13 @@ export default function App() {
 
             <div className="p-8 bg-slate-50 overflow-x-auto">
               <div id="investSheet" className="a4-sheet mx-auto bg-white shadow-lg p-10 text-right" dir="rtl">
-                <div className="border-b-2 border-slate-900 pb-6 mb-8 flex justify-between items-start">
-                  <div>
-                    <h1 className="text-2xl font-black text-slate-900 mb-2">تقرير استثمار نتائج التلاميذ</h1>
-                    <p className="text-slate-600 font-bold">{currentAnalysis.info.school}</p>
-                    <p className="text-slate-500">{currentAnalysis.info.level} - {selectedClass === 'all' ? 'جميع الأقسام' : selectedClass}</p>
-                  </div>
-                  <div className="text-left">
-                    <p className="text-sm text-slate-400">تاريخ التقرير: {new Date().toLocaleDateString('ar-MA')}</p>
-                    <p className="text-sm text-slate-400">عدد التلاميذ: {stats.n}</p>
-                  </div>
-                </div>
+                <OfficialHeader 
+                  academy={currentAnalysis.info.academy}
+                  school={currentAnalysis.info.school}
+                  year={currentAnalysis.info.year}
+                  level={`${currentAnalysis.info.level} - ${selectedClass === 'all' ? 'جميع الأقسام' : selectedClass}`}
+                  title="تقرير استثمار نتائج التلاميذ"
+                />
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10 no-print">
                   <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 text-center">
@@ -2258,16 +2283,13 @@ export default function App() {
                   padding: '15mm'
                 }}
               >
-                <div className="border-b-2 border-slate-900 pb-4 mb-6 flex justify-between items-start">
-                  <div>
-                    <h1 className="text-2xl font-black text-slate-900 mb-1">جدول أساتذة المواد حسب الأقسام</h1>
-                    <p className="text-sm text-slate-600 font-bold">{currentAnalysis.info.academy} | {currentAnalysis.info.school}</p>
-                    <p className="text-sm text-slate-500">السنة الدراسية: {currentAnalysis.info.year}</p>
-                  </div>
-                  <div className="text-left">
-                    <p className="text-xs text-slate-400">تاريخ الاستخراج: {new Date().toLocaleDateString('ar-MA')}</p>
-                  </div>
-                </div>
+                <OfficialHeader 
+                  academy={currentAnalysis.info.academy}
+                  school={currentAnalysis.info.school}
+                  year={currentAnalysis.info.year}
+                  level={currentAnalysis.info.level}
+                  title="جدول أساتذة المواد حسب الأقسام"
+                />
 
                 <div className="flex-1 overflow-x-auto">
                   {(() => {
