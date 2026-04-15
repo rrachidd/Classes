@@ -27,7 +27,12 @@ interface Student {
   id: string;
   name: string;
   gender: string;
-  grade: number | null;
+  grade: number | null; // Current selected grade
+  term1?: number | null;
+  term2?: number | null;
+  localExam?: number | null;
+  regionalExam?: number | null;
+  annual?: number | null;
   rank?: number;
   className?: string;
   phone?: string;
@@ -185,29 +190,35 @@ const parseSheet = (rows: any[][]) => {
       if (/^(06|07)\d{8}$/.test(c)) { phone = c; }
     }
 
-    let grade = null;
+    let grades: number[] = [];
     for (let j = idCol + 2; j < row.length; j++) {
-      const raw = String(row[j]).trim();
-      if (/^\d{1,2},\d{2}$/.test(raw)) { grade = parseGrade(raw); break; }
-    }
-    if (grade === null) {
-      for (let j = idCol + 2; j < row.length; j++) {
-        const g = parseGrade(row[j]);
-        if (g !== null) {
-          const raw = String(row[j]).trim();
-          if (raw.includes('.') || raw.includes(',') || (typeof row[j] === 'number' && !Number.isInteger(row[j]))) {
-            grade = g; break;
-          }
+      const g = parseGrade(row[j]);
+      if (g !== null) {
+        const raw = String(row[j]).trim();
+        if (raw.includes('.') || raw.includes(',') || typeof row[j] === 'number') {
+          grades.push(g);
         }
       }
     }
+
+    const term1 = grades.length > 0 ? grades[0] : null;
+    const term2 = grades.length > 1 ? grades[1] : null;
+    const localExam = grades.length > 2 ? grades[2] : null;
+    const regionalExam = grades.length > 3 ? grades[3] : null;
+    const annual = grades.length > 4 ? grades[4] : (grades.length === 3 ? grades[2] : null);
+    const grade = term1;
 
     const sClass = info.class ? info.class.trim() : '';
 
     const existing = students.find(s => s.id === id);
     if (!existing) {
-      students.push({ id, name, gender, grade, className: sClass, phone });
+      students.push({ id, name, gender, grade, term1, term2, localExam, regionalExam, annual, className: sClass, phone });
     } else {
+      if (term1 !== null) existing.term1 = term1;
+      if (term2 !== null) existing.term2 = term2;
+      if (localExam !== null) existing.localExam = localExam;
+      if (regionalExam !== null) existing.regionalExam = regionalExam;
+      if (annual !== null) existing.annual = annual;
       if (grade !== null && existing.grade === null) existing.grade = grade;
       if (gender && !existing.gender) existing.gender = gender;
       if (sClass && !existing.className) existing.className = sClass;
@@ -226,130 +237,164 @@ const CouncilReport = ({ analysis, className, students, teachers, stats, contain
   stats: any,
   containerId?: string
 }) => {
-  const studentChunks = chunkArray(students, 50); // Increased to 50 to fit more students on one page
+  const studentChunks = chunkArray(students, 50);
   const totalStudentPages = studentChunks.length;
 
-  return (
-    <div id={containerId} className="space-y-12">
-      {studentChunks.map((chunk, pageIdx) => (
-        <div key={pageIdx} className="a4-sheet mx-auto bg-white shadow-lg p-8 text-right" dir="rtl">
-          <div className="border-b-2 border-slate-900 pb-4 mb-6 flex justify-between items-start">
-            <div>
-              <h1 className="text-xl font-black text-slate-900 mb-1">محضر مجلس القسم - لائحة التلاميذ</h1>
-              <p className="text-xs text-slate-600 font-bold">{analysis.info.academy}</p>
-              <p className="text-xs text-slate-600 font-bold">{analysis.info.school}</p>
-              <p className="text-xs text-slate-500">{analysis.info.level} - {className === 'all' ? 'جميع الأقسام' : className}</p>
+  const StatsSection = () => (
+    <div className="grid grid-cols-2 gap-8 mb-10">
+      <div className="border border-slate-200 p-4 rounded-xl">
+        <h3 className="font-bold mb-4 text-blue-700 border-b pb-2">إحصائيات عامة:</h3>
+        <div className="space-y-2 text-sm">
+          <div className="flex justify-between"><span>معدل القسم:</span> <span className="font-bold">{stats.avg.toFixed(2)}</span></div>
+          <div className="flex justify-between"><span>نسبة النجاح:</span> <span className="font-bold text-green-600">{((stats.pass / stats.n) * 100).toFixed(1)}%</span></div>
+          <div className="flex justify-between"><span>أعلى معدل:</span> <span className="font-bold text-blue-600">{stats.max.toFixed(2)}</span></div>
+          <div className="flex justify-between"><span>أدنى معدل:</span> <span className="font-bold text-red-600">{stats.min.toFixed(2)}</span></div>
+        </div>
+      </div>
+      <div className="border border-slate-200 p-4 rounded-xl">
+        <h3 className="font-bold mb-4 text-purple-700 border-b pb-2">الثلاثة الأوائل:</h3>
+        <div className="space-y-2 text-sm">
+          {students.slice(0, 3).map((s, i) => (
+            <div key={i} className="flex justify-between items-center">
+              <span className="flex items-center gap-2">
+                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] text-white ${i === 0 ? 'bg-yellow-500' : i === 1 ? 'bg-slate-400' : 'bg-orange-400'}`}>{i + 1}</span>
+                {s.name}
+              </span>
+              <span className="font-bold">{s.grade?.toFixed(2)}</span>
             </div>
-            <div className="text-left">
-              <p className="text-xs text-slate-400">السنة الدراسية: {analysis.info.year}</p>
-              <p className="text-xs text-slate-400">عدد التلاميذ: {stats.n}</p>
-              <p className="text-[10px] text-slate-400 mt-1">صفحة {pageIdx + 1} من {totalStudentPages + 1}</p>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  const TeachersSection = () => (
+    <div className="shrink-0">
+      <h3 className="font-bold mb-4 text-slate-800 border-r-4 border-blue-500 pr-3">جدول الأساتذة والتوقيعات:</h3>
+      <table className="w-full border-collapse border border-slate-300 text-sm mb-10">
+        <thead>
+          <tr className="bg-slate-100">
+            <th className="border border-slate-300 p-2 text-right">المادة المدرسة</th>
+            <th className="border border-slate-300 p-2 text-right">اسم الأستاذ(ة)</th>
+            <th className="border border-slate-300 p-2 text-center w-32">التوقيع</th>
+          </tr>
+        </thead>
+        <tbody>
+          {teachers.map((t, i) => (
+            <tr key={i}>
+              <td className="border border-slate-300 p-2 font-bold">{t.subject}</td>
+              <td className="border border-slate-300 p-2">{t.name}</td>
+              <td className="border border-slate-300 p-2 h-12"></td>
+            </tr>
+          ))}
+          {teachers.length === 0 && (
+            <tr>
+              <td colSpan={3} className="border border-slate-300 p-4 text-center text-slate-400 italic">يرجى إدخال أسماء الأساتذة في صفحة النتائج ليظهروا هنا.</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  const StudentTable = ({ data, startIndex }: { data: Student[], startIndex: number }) => (
+    <table className="w-full border-collapse border border-slate-500 text-[8px] leading-tight">
+      <thead>
+        <tr className="bg-slate-100">
+          <th className="border border-slate-500 py-1 px-0.5 text-center w-6">الرقم</th>
+          <th className="border border-slate-500 py-1 px-1 text-center">الاسم والنسب</th>
+          <th className="border border-slate-500 py-1 px-0.5 text-center w-10">المعدل</th>
+          <th className="border border-slate-500 py-1 px-1 text-center w-16">القرار</th>
+        </tr>
+      </thead>
+      <tbody>
+        {data.map((s, idx) => (
+          <tr key={s.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+            <td className="border border-slate-500 py-0.5 px-0.5 text-center font-bold text-slate-600">{startIndex + idx + 1}</td>
+            <td className="border border-slate-500 py-0.5 px-1 text-right font-medium truncate max-w-[80px]">{s.name}</td>
+            <td className="border border-slate-500 py-0.5 px-0.5 text-center font-bold">{s.grade?.toFixed(2) || '—'}</td>
+            <td className={`border border-slate-500 py-0.5 px-1 text-center font-bold ${s.grade && s.grade >= 10 ? 'text-green-700' : 'text-red-700'}`}>
+              {s.grade && s.grade >= 10 ? 'ينتقل' : 'يكرر'}
+            </td>
+          </tr>
+        ))}
+        {/* Fill empty rows to keep tables aligned if needed */}
+        {Array.from({ length: Math.max(0, 25 - data.length) }).map((_, i) => (
+          <tr key={`empty-${i}`}>
+            <td className="border border-slate-500 py-0.5 px-0.5 h-[4.2mm]"></td>
+            <td className="border border-slate-500 py-0.5 px-1 h-[4.2mm]"></td>
+            <td className="border border-slate-500 py-0.5 px-0.5 h-[4.2mm]"></td>
+            <td className="border border-slate-500 py-0.5 px-1 h-[4.2mm]"></td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+
+  return (
+    <div id={containerId} className="bg-slate-100 p-4 space-y-8">
+      {studentChunks.map((chunk, pageIdx) => (
+        <div key={pageIdx} className="a4-sheet mx-auto bg-white shadow-lg p-6 text-right flex flex-col" dir="rtl" style={{ height: '297mm', width: '210mm', overflow: 'hidden' }}>
+          <div className="border-b-2 border-slate-900 pb-2 mb-4 flex justify-between items-start shrink-0">
+            <div>
+              <h1 className="text-lg font-black text-slate-900 mb-1">محضر مجلس القسم - لائحة التلاميذ</h1>
+              <p className="text-[10px] text-slate-700 font-bold leading-none">{analysis.info.academy} | {analysis.info.school}</p>
+              <p className="text-[10px] text-slate-600 leading-none mt-1">{analysis.info.level} - {className === 'all' ? 'جميع الأقسام' : className}</p>
+            </div>
+            <div className="text-left shrink-0">
+              <p className="text-[10px] text-slate-500 leading-none">السنة الدراسية: {analysis.info.year}</p>
+              <p className="text-[10px] text-slate-500 leading-none mt-1">عدد التلاميذ: {stats.n}</p>
+              <p className="text-[9px] text-slate-400 mt-1">صفحة {pageIdx + 1} من {totalStudentPages + 1}</p>
             </div>
           </div>
 
-          <h3 className="text-sm font-bold mb-3 text-slate-800 border-r-4 border-emerald-500 pr-3">لائحة نتائج التلاميذ وقرارات المجلس:</h3>
-          <table className="w-full border-collapse border border-slate-300 text-[11px]">
-            <thead>
-              <tr className="bg-slate-50">
-                <th className="border border-slate-300 p-1 text-center w-10">الرقم</th>
-                <th className="border border-slate-300 p-1 text-right">الاسم والنسب</th>
-                <th className="border border-slate-300 p-1 text-center w-14">الجنس</th>
-                <th className="border border-slate-300 p-1 text-center w-16">المعدل</th>
-                <th className="border border-slate-300 p-1 text-right">قرار المجلس / ملاحظات</th>
-              </tr>
-            </thead>
-            <tbody>
-              {chunk.map((s, idx) => (
-                <tr key={s.id} className="hover:bg-slate-50">
-                  <td className="border border-slate-300 p-1 text-center">{pageIdx * 50 + idx + 1}</td>
-                  <td className="border border-slate-300 p-1 font-medium">{s.name}</td>
-                  <td className="border border-slate-300 p-1 text-center">{s.gender}</td>
-                  <td className="border border-slate-300 p-1 text-center font-bold">{s.grade?.toFixed(2) || '—'}</td>
-                  <td className="border border-slate-300 p-1 text-[10px] italic text-slate-500">
-                    {s.grade && s.grade >= 10 ? 'ينتقل' : 'يكرر'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div className="mt-4 text-left text-[10px] text-slate-400 italic">
-            * تم ترتيب التلاميذ حسب الاستحقاق (المعدل)
+          <h3 className="text-[11px] font-bold mb-3 text-slate-800 border-r-4 border-emerald-500 pr-2 shrink-0">نتائج التلاميذ وقرارات المجلس:</h3>
+          
+          <div className="flex-1 overflow-hidden flex gap-6">
+            <div className="flex-1">
+              <StudentTable data={chunk.slice(0, 25)} startIndex={pageIdx * 50} />
+            </div>
+            <div className="flex-1">
+              <StudentTable data={chunk.slice(25, 50)} startIndex={pageIdx * 50 + 25} />
+            </div>
+          </div>
+
+          <div className="mt-4 pt-2 border-t border-slate-200 flex justify-between items-end shrink-0">
+            <div className="text-[9px] text-slate-400 italic">
+              * تم ترتيب التلاميذ حسب الاستحقاق (المعدل)
+            </div>
+            <div className="text-[10px] font-bold text-slate-700">
+              توقيع الأستاذ(ة): ................................
+            </div>
           </div>
         </div>
       ))}
 
-      {/* Final Page: Stats & Teachers */}
-      <div className="a4-sheet mx-auto bg-white shadow-lg p-10 text-right" dir="rtl">
-        <div className="border-b-2 border-slate-900 pb-6 mb-8 flex justify-between items-start">
+      <div className="a4-sheet mx-auto bg-white shadow-lg p-10 text-right flex flex-col" dir="rtl" style={{ height: '297mm', width: '210mm', overflow: 'hidden' }}>
+        <div className="border-b-2 border-slate-900 pb-6 mb-8 flex justify-between items-start shrink-0">
           <div>
             <h1 className="text-2xl font-black text-slate-900 mb-2">محضر مجلس القسم - الإحصائيات والقرارات</h1>
             <p className="text-slate-600 font-bold">{analysis.info.academy}</p>
             <p className="text-slate-600 font-bold">{analysis.info.school}</p>
             <p className="text-slate-500">{analysis.info.level} - {className === 'all' ? 'جميع الأقسام' : className}</p>
           </div>
-          <div className="text-left">
+          <div className="text-left shrink-0">
             <p className="text-sm text-slate-400">تاريخ الاجتماع: {new Date().toLocaleDateString('ar-MA')}</p>
             <p className="text-xs text-slate-400 mt-1">صفحة {totalStudentPages + 1} من {totalStudentPages + 1}</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-8 mb-10">
-          <div className="border border-slate-200 p-4 rounded-xl">
-            <h3 className="font-bold mb-4 text-blue-700 border-b pb-2">إحصائيات عامة:</h3>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between"><span>معدل القسم:</span> <span className="font-bold">{stats.avg.toFixed(2)}</span></div>
-              <div className="flex justify-between"><span>نسبة النجاح:</span> <span className="font-bold text-green-600">{((stats.pass / stats.n) * 100).toFixed(1)}%</span></div>
-              <div className="flex justify-between"><span>أعلى معدل:</span> <span className="font-bold text-blue-600">{stats.max.toFixed(2)}</span></div>
-              <div className="flex justify-between"><span>أدنى معدل:</span> <span className="font-bold text-red-600">{stats.min.toFixed(2)}</span></div>
-            </div>
-          </div>
-          <div className="border border-slate-200 p-4 rounded-xl">
-            <h3 className="font-bold mb-4 text-purple-700 border-b pb-2">الثلاثة الأوائل:</h3>
-            <div className="space-y-2 text-sm">
-              {students.slice(0, 3).map((s, i) => (
-                <div key={i} className="flex justify-between items-center">
-                  <span className="flex items-center gap-2">
-                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] text-white ${i === 0 ? 'bg-yellow-500' : i === 1 ? 'bg-slate-400' : 'bg-orange-400'}`}>{i + 1}</span>
-                    {s.name}
-                  </span>
-                  <span className="font-bold">{s.grade?.toFixed(2)}</span>
-                </div>
-              ))}
-            </div>
+        <div className="flex-1">
+          <StatsSection />
+          <TeachersSection />
+
+          <div className="border border-slate-200 p-4 rounded-xl mb-10">
+            <h3 className="font-bold mb-2 text-slate-700">ملاحظات وقرارات إضافية:</h3>
+            <div className="h-32 border-2 border-dashed border-slate-100 rounded-lg"></div>
           </div>
         </div>
 
-        <h3 className="font-bold mb-4 text-slate-800 border-r-4 border-blue-500 pr-3">جدول الأساتذة والتوقيعات:</h3>
-        <table className="w-full border-collapse border border-slate-300 text-sm mb-10">
-          <thead>
-            <tr className="bg-slate-100">
-              <th className="border border-slate-300 p-2 text-right">المادة المدرسة</th>
-              <th className="border border-slate-300 p-2 text-right">اسم الأستاذ(ة)</th>
-              <th className="border border-slate-300 p-2 text-center w-32">التوقيع</th>
-            </tr>
-          </thead>
-          <tbody>
-            {teachers.map((t, i) => (
-              <tr key={i}>
-                <td className="border border-slate-300 p-2 font-bold">{t.subject}</td>
-                <td className="border border-slate-300 p-2">{t.name}</td>
-                <td className="border border-slate-300 p-2 h-12"></td>
-              </tr>
-            ))}
-            {teachers.length === 0 && (
-              <tr>
-                <td colSpan={3} className="border border-slate-300 p-4 text-center text-slate-400 italic">يرجى إدخال أسماء الأساتذة في صفحة النتائج ليظهروا هنا.</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-
-        <div className="border border-slate-200 p-4 rounded-xl mb-10">
-          <h3 className="font-bold mb-2 text-slate-700">ملاحظات وقرارات إضافية:</h3>
-          <div className="h-32 border-2 border-dashed border-slate-100 rounded-lg"></div>
-        </div>
-
-        <div className="mt-12 pt-8 border-t border-slate-200 flex justify-between items-center text-sm text-slate-400">
+        <div className="mt-12 pt-8 border-t border-slate-200 flex justify-between items-center text-sm text-slate-400 shrink-0">
           <p>توقيع السيد المدير</p>
           <p>توقيع الحارس العام</p>
         </div>
@@ -376,7 +421,21 @@ export default function App() {
   const [filterGen, setFilterGen] = useState('all');
   const [filterSt, setFilterSt] = useState('all');
   const [selectedClass, setSelectedClass] = useState<string>('all');
+  const [selectedTerm, setSelectedTerm] = useState<'term1' | 'term2' | 'local' | 'regional' | 'annual'>('term1');
   const [sortField, setSortField] = useState('grade');
+
+  // Derived students based on selected term
+  const students = useMemo(() => {
+    if (!currentAnalysis) return [];
+    return currentAnalysis.students.map(s => ({
+      ...s,
+      grade: selectedTerm === 'term1' ? (s.term1 ?? s.grade) : 
+             selectedTerm === 'term2' ? (s.term2 ?? s.grade) : 
+             selectedTerm === 'local' ? (s.localExam ?? s.grade) :
+             selectedTerm === 'regional' ? (s.regionalExam ?? s.grade) :
+             (s.annual ?? s.grade)
+    }));
+  }, [currentAnalysis, selectedTerm]);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   // Charts refs
@@ -406,11 +465,11 @@ export default function App() {
 
   const classes = useMemo(() => {
     if (!currentAnalysis) return [];
-    const fromStudents = currentAnalysis.students.map(s => s.className?.trim()).filter(Boolean);
+    const fromStudents = students.map(s => s.className?.trim()).filter(Boolean);
     const fromInfo = currentAnalysis.info.class ? currentAnalysis.info.class.split(/[،,]/).map(c => c.trim()).filter(Boolean) : [];
     const set = new Set([...fromStudents, ...fromInfo]);
     return Array.from(set).sort() as string[];
-  }, [currentAnalysis]);
+  }, [currentAnalysis, students]);
 
   // Handle File Upload
   const handleFiles = async (fileList: FileList | null) => {
@@ -511,7 +570,7 @@ export default function App() {
     setLoading(true);
     setError('');
     
-    let batchStudents = [...currentAnalysis.students];
+    let batchStudents = [...students];
     let batchInfo = { ...currentAnalysis.info };
     
     try {
@@ -581,7 +640,7 @@ export default function App() {
     setLoading(true);
     try {
       // 1. Filter out students belonging to this class
-      const remainingStudents = currentAnalysis.students.filter(s => {
+      const remainingStudents = students.filter(s => {
         const sClass = (s.className || '').trim();
         return sClass !== target;
       });
@@ -637,13 +696,13 @@ export default function App() {
   const stats = useMemo(() => {
     if (!currentAnalysis) return null;
     const targetClass = selectedClass.trim();
-    let students = currentAnalysis.students;
+    let filtered = students;
     if (selectedClass !== 'all') {
-      students = students.filter(s => (s.className?.trim() || '') === targetClass);
+      filtered = students.filter(s => (s.className?.trim() || '') === targetClass);
     }
-    const wg = students.filter(s => s.grade !== null);
+    const wg = filtered.filter(s => s.grade !== null);
     const gs = wg.map(s => s.grade as number);
-    const n = students.length;
+    const n = filtered.length;
     const pass = wg.filter(s => (s.grade || 0) >= 10).length;
     const fail = wg.filter(s => (s.grade || 0) < 10).length;
     const avg = gs.length ? gs.reduce((a, b) => a + b, 0) / gs.length : 0;
@@ -679,7 +738,7 @@ export default function App() {
     ];
 
     return { n, pass, fail, avg, max, min, fem, mal, wg, gs, med, sd, range, rateFem, rateMal, avgFem, avgMal, categories };
-  }, [currentAnalysis, selectedClass]);
+  }, [currentAnalysis, selectedClass, students]);
 
   // Charts Effect
   useEffect(() => {
@@ -811,7 +870,7 @@ export default function App() {
   const filteredStudents = useMemo(() => {
     if (!currentAnalysis) return [];
     const targetClass = selectedClass.trim();
-    let res = currentAnalysis.students.filter(s => {
+    let res = students.filter(s => {
       if (selectedClass !== 'all' && (s.className?.trim() || '') !== targetClass) return false;
       if (search && !s.name.includes(search) && !s.id.toLowerCase().includes(search.toLowerCase())) return false;
       if (filterGen !== 'all' && s.gender !== filterGen) return false;
@@ -832,7 +891,7 @@ export default function App() {
     });
 
     return res;
-  }, [currentAnalysis, search, filterGen, filterSt, sortField, sortDir, selectedClass]);
+  }, [currentAnalysis, search, filterGen, filterSt, sortField, sortDir, selectedClass, students]);
 
   // PDF Export
   const downloadPDF = async () => {
@@ -895,17 +954,17 @@ export default function App() {
     if (!currentAnalysis || !classes.length) return [];
     
     return classes.map(cls => {
-      const students = currentAnalysis.students.filter(s => (s.className?.trim() || '') === cls);
-      const wg = students.filter(s => s.grade !== null);
+      const classStudents = students.filter(s => (s.className?.trim() || '') === cls);
+      const wg = classStudents.filter(s => s.grade !== null);
       const gs = wg.map(s => s.grade as number);
       const pass = wg.filter(s => (s.grade || 0) >= 10).length;
       const avg = gs.length ? gs.reduce((a, b) => a + b, 0) / gs.length : 0;
       const max = gs.length ? Math.max(...gs) : 0;
-      const passRate = students.length ? (pass / students.length * 100) : 0;
+      const passRate = classStudents.length ? (pass / classStudents.length * 100) : 0;
       
-      return { cls, avg, passRate, max, count: students.length };
+      return { cls, avg, passRate, max, count: classStudents.length };
     });
-  }, [currentAnalysis, classes]);
+  }, [currentAnalysis, classes, students]);
 
   const chartCompAvgRef = useRef<HTMLCanvasElement>(null);
   const chartCompPassRef = useRef<HTMLCanvasElement>(null);
@@ -1320,6 +1379,26 @@ export default function App() {
                 </nav>
 
                 <div className="pt-4 border-t border-slate-50">
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider px-2 mb-2">اختيار معدل الدورة</h3>
+                  <div className="relative">
+                    <select
+                      value={selectedTerm}
+                      onChange={(e) => setSelectedTerm(e.target.value as any)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all appearance-none cursor-pointer pr-10"
+                    >
+                      <option value="term1">الدورة الأولى 📅</option>
+                      <option value="term2">الدورة الثانية 📅</option>
+                      <option value="local">المعدل المحلي 🏫</option>
+                      <option value="regional">المعدل الجهوي 🗺️</option>
+                      <option value="annual">المعدل العام 🏆</option>
+                    </select>
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                      <ChevronDown className="w-4 h-4" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-slate-50">
                   <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider px-2 mb-2">اختيار القسم</h3>
                   <div className="relative">
                     <select
@@ -1543,7 +1622,12 @@ export default function App() {
                       <th onClick={() => { setSortField('id'); setSortDir(sortDir === 'asc' ? 'desc' : 'asc'); }}>رقم التلميذ</th>
                       <th onClick={() => { setSortField('name'); setSortDir(sortDir === 'asc' ? 'desc' : 'asc'); }}>الاسم والنسب</th>
                       <th>الجنس</th>
-                      <th onClick={() => { setSortField('grade'); setSortDir(sortDir === 'asc' ? 'desc' : 'asc'); }}>المعدل</th>
+                      <th className="text-center">الدورة 1</th>
+                      <th className="text-center">الدورة 2</th>
+                      <th className="text-center">المحلي</th>
+                      <th className="text-center">الجهوي</th>
+                      <th className="text-center">المعدل العام</th>
+                      <th onClick={() => { setSortField('grade'); setSortDir(sortDir === 'asc' ? 'desc' : 'asc'); }}>المعدل المختار</th>
                       <th>الحالة</th>
                     </tr>
                   </thead>
@@ -1554,6 +1638,11 @@ export default function App() {
                         <td className="text-xs text-slate-400">{s.id}</td>
                         <td className="font-medium">{s.name}</td>
                         <td><span className={`genbadge ${s.gender === 'أنثى' ? 'gf2' : 'gm'}`}>{s.gender}</span></td>
+                        <td className="text-center font-bold text-slate-600">{s.term1?.toFixed(2) || '—'}</td>
+                        <td className="text-center font-bold text-slate-600">{s.term2?.toFixed(2) || '—'}</td>
+                        <td className="text-center font-bold text-slate-600">{s.localExam?.toFixed(2) || '—'}</td>
+                        <td className="text-center font-bold text-slate-600">{s.regionalExam?.toFixed(2) || '—'}</td>
+                        <td className="text-center font-bold text-blue-600">{s.annual?.toFixed(2) || '—'}</td>
                         <td>
                           <span className={`gb ${s.grade !== null ? (s.grade >= 16 ? 'ge' : s.grade >= 12 ? 'gg' : s.grade >= 10 ? 'ga' : 'gf') : ''}`}>
                             {s.grade?.toFixed(2) || '—'}
@@ -1994,7 +2083,7 @@ export default function App() {
       {isGeneratingAll && currentAnalysis && (
         <div style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '210mm' }}>
           {classes.map(c => {
-            const classStudents = currentAnalysis.students.filter(s => (s.className?.trim() || '') === c);
+            const classStudents = students.filter(s => (s.className?.trim() || '') === c);
             const wg = classStudents.filter(s => s.grade !== null);
             const gs = wg.map(s => s.grade as number);
             const n = classStudents.length;
@@ -2045,7 +2134,7 @@ export default function App() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-              {currentAnalysis.students
+              {students
                 .filter(s => s.grade !== null && s.grade < 10 && (selectedClass === 'all' || s.className === selectedClass))
                 .sort((a, b) => (a.grade || 0) - (b.grade || 0))
                 .map(s => (
@@ -2066,7 +2155,7 @@ export default function App() {
                         onBlur={(e) => {
                           const val = e.target.value.trim();
                           if (val) {
-                            const updatedStudents = currentAnalysis.students.map(st => 
+                            const updatedStudents = students.map(st => 
                               st.id === s.id ? { ...st, phone: val } : st
                             );
                             setCurrentAnalysis({ ...currentAnalysis, students: updatedStudents });
@@ -2089,7 +2178,7 @@ export default function App() {
                     </div>
                   </div>
                 ))}
-              {currentAnalysis.students.filter(s => s.grade !== null && s.grade < 10 && (selectedClass === 'all' || s.className === selectedClass)).length === 0 && (
+              {students.filter(s => s.grade !== null && s.grade < 10 && (selectedClass === 'all' || s.className === selectedClass)).length === 0 && (
                 <div className="text-center py-10 text-slate-400 italic">
                   لا يوجد تلاميذ بمعدل أقل من 10 في هذا القسم.
                 </div>
