@@ -12,7 +12,7 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import { collection, addDoc, query, where, orderBy, onSnapshot, serverTimestamp, Timestamp, updateDoc, doc, getDocs } from 'firebase/firestore';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
-import { LogOut, User, FileText, Download, Trash2, Plus, History, Loader2, BarChart3, Users, CheckCircle2, XCircle, TrendingUp, Trophy, TrendingDown, ChevronRight, Gavel, ChevronDown, Printer } from 'lucide-react';
+import { LogOut, User, FileText, Download, Trash2, Plus, History, Loader2, BarChart3, Users, CheckCircle2, XCircle, TrendingUp, Trophy, TrendingDown, ChevronRight, Gavel, ChevronDown, Printer, Upload, FileJson } from 'lucide-react';
 
 Chart.register(...registerables, ChartDataLabels);
 
@@ -1239,6 +1239,49 @@ export default function App() {
     }
   };
 
+  const exportDataAsJSON = () => {
+    if (!currentAnalysis) return;
+    const dataStr = JSON.stringify(currentAnalysis, null, 2);
+    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+    const exportFileDefaultName = `بيانات_التحليل_${currentAnalysis.info.school}_${currentAnalysis.info.year}.json`;
+    const linkElement = document.createElement('a');
+    linkElement.setAttribute('href', dataUri);
+    linkElement.setAttribute('download', exportFileDefaultName);
+    linkElement.click();
+  };
+
+  const importDataFromJSON = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const json = JSON.parse(e.target?.result as string);
+        if (json.info && json.students) {
+          setLoading(true);
+          // Create a new analysis based on the imported JSON
+          const docRef = await addDoc(collection(db, 'analyses'), {
+            ...json,
+            uid: user?.uid,
+            createdAt: serverTimestamp()
+          });
+          // The onSnapshot listener will pick up the new doc, but we can also set it manually
+          // to navigate to the results view immediately
+          const newAnalysis = { ...json, id: docRef.id };
+          setCurrentAnalysis(newAnalysis);
+          setView('results');
+          setLoading(false);
+        } else {
+          setError('الملف المختار غير صالح. يرجى التأكد من أنه ملف JSON تم تصديره من هذا التطبيق.');
+        }
+      } catch (err) {
+        console.error(err);
+        setError('حدث خطأ أثناء قراءة الملف.');
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const updateTeachers = async (newTeachers: Teacher[]) => {
     if (!currentAnalysis || !currentAnalysis.id) return;
     try {
@@ -1436,6 +1479,27 @@ export default function App() {
                     <span className="btn-text">تحميل التقرير الحالي</span>
                     <Download className="btn-icon" />
                   </button>
+
+                  <div className="pt-4 border-t border-slate-100 space-y-2">
+                    <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2">إدارة البيانات</h4>
+                    <button
+                      onClick={exportDataAsJSON}
+                      className="sidebar-btn text-blue-600 hover:bg-blue-50"
+                    >
+                      <span className="btn-text">تصدير المعطيات (JSON)</span>
+                      <FileJson className="btn-icon" />
+                    </button>
+                    <label className="sidebar-btn text-emerald-600 hover:bg-emerald-50 cursor-pointer">
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept=".json"
+                        onChange={importDataFromJSON}
+                      />
+                      <span className="btn-text">استيراد المعطيات (JSON)</span>
+                      <Upload className="btn-icon" />
+                    </label>
+                  </div>
                 </nav>
 
                 <div className="pt-4 border-t border-slate-50">
