@@ -270,13 +270,14 @@ const OfficialHeader = ({ academy, school, year, level, title, pageInfo }: {
   </div>
 );
 
-const CouncilReport = ({ analysis, className, students, teachers, stats, containerId }: { 
+const CouncilReport = ({ analysis, className, students, teachers, stats, containerId, mode = 'term1' }: { 
   analysis: Analysis, 
   className: string, 
   students: Student[], 
   teachers: Teacher[], 
   stats: any,
-  containerId?: string
+  containerId?: string,
+  mode?: 'term1' | 'term2'
 }) => {
   const studentChunks = chunkArray(students, 48);
   const totalStudentPages = studentChunks.length;
@@ -301,7 +302,7 @@ const CouncilReport = ({ analysis, className, students, teachers, stats, contain
                 <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] text-white ${i === 0 ? 'bg-yellow-500' : i === 1 ? 'bg-slate-400' : 'bg-orange-400'}`}>{i + 1}</span>
                 {s.name}
               </span>
-              <span className="font-bold">{s.grade?.toFixed(2)}</span>
+              <span className="font-bold">{(mode === 'term1' ? s.term1 : s.annual)?.toFixed(2)}</span>
             </div>
           ))}
         </div>
@@ -339,32 +340,61 @@ const CouncilReport = ({ analysis, className, students, teachers, stats, contain
   );
 
   const StudentTable = ({ data, startIndex, targetRows = 26 }: { data: Student[], startIndex: number, targetRows?: number }) => (
-    <table className="w-full border-collapse border border-slate-500 text-[8px] leading-tight">
+    <table className="w-full border-collapse border border-slate-500 text-[7px] leading-tight">
       <thead>
         <tr className="bg-slate-100">
-          <th className="border border-slate-500 py-1 px-0.5 text-center w-6">الرقم</th>
+          <th className="border border-slate-500 py-1 px-0.5 text-center w-5">الرقم</th>
           <th className="border border-slate-500 py-1 px-1 text-center">الاسم والنسب</th>
-          <th className="border border-slate-500 py-1 px-0.5 text-center w-10">المعدل</th>
-          <th className="border border-slate-500 py-1 px-1 text-center w-16">القرار</th>
+          {mode === 'term1' ? (
+            <th className="border border-slate-500 py-1 px-0.5 text-center w-10">معدل د1</th>
+          ) : (
+            <>
+              <th className="border border-slate-500 py-1 px-0.5 text-center w-8">معدل د1</th>
+              <th className="border border-slate-500 py-1 px-0.5 text-center w-8">معدل د2</th>
+              <th className="border border-slate-500 py-1 px-0.5 text-center w-8">م. سنوي</th>
+            </>
+          )}
+          <th className="border border-slate-500 py-1 px-1 text-center w-12">القرار</th>
         </tr>
       </thead>
       <tbody>
-        {data.map((s, idx) => (
-          <tr key={s.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-            <td className="border border-slate-500 py-0.5 px-0.5 text-center font-bold text-slate-600">{startIndex + idx + 1}</td>
-            <td className="border border-slate-500 py-0.5 px-1 text-right font-medium truncate max-w-[80px]">{s.name}</td>
-            <td className="border border-slate-500 py-0.5 px-0.5 text-center font-bold">{s.grade?.toFixed(2) || '—'}</td>
-            <td className={`border border-slate-500 py-0.5 px-1 text-center font-bold ${s.grade && s.grade >= 10 ? 'text-green-700' : 'text-red-700'}`}>
-              {s.grade && s.grade >= 10 ? 'ينتقل' : 'يكرر'}
-            </td>
-          </tr>
-        ))}
+        {data.map((s, idx) => {
+          const displayGrade = mode === 'term1' ? (s.term1 ?? s.grade) : (s.annual ?? s.grade);
+          const isPass = displayGrade !== null && displayGrade >= 10;
+          
+          return (
+            <tr key={s.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+              <td className="border border-slate-500 py-0.5 px-0.5 text-center font-bold text-slate-600">{startIndex + idx + 1}</td>
+              <td className="border border-slate-500 py-0.5 px-1 text-right font-medium truncate max-w-[70px]">{s.name}</td>
+              {mode === 'term1' ? (
+                <td className="border border-slate-500 py-0.5 px-0.5 text-center font-bold">{s.term1?.toFixed(2) || '—'}</td>
+              ) : (
+                <>
+                  <td className="border border-slate-500 py-0.5 px-0.5 text-center font-bold">{s.term1?.toFixed(2) || '—'}</td>
+                  <td className="border border-slate-500 py-0.5 px-0.5 text-center font-bold">{s.term2?.toFixed(2) || '—'}</td>
+                  <td className="border border-slate-500 py-0.5 px-0.5 text-center font-bold">{s.annual?.toFixed(2) || '—'}</td>
+                </>
+              )}
+              <td className={`border border-slate-500 py-0.5 px-1 text-center font-bold ${isPass ? 'text-green-700' : 'text-red-700'}`}>
+                {isPass ? 'ينتقل' : 'يكرر'}
+              </td>
+            </tr>
+          );
+        })}
         {/* Fill empty rows to keep tables aligned if needed */}
         {Array.from({ length: Math.max(0, targetRows - data.length) }).map((_, i) => (
           <tr key={`empty-${i}`}>
             <td className="border border-slate-500 py-0.5 px-0.5 h-[4.2mm]"></td>
             <td className="border border-slate-500 py-0.5 px-1 h-[4.2mm]"></td>
-            <td className="border border-slate-500 py-0.5 px-0.5 h-[4.2mm]"></td>
+            {mode === 'term1' ? (
+              <td className="border border-slate-500 py-0.5 px-0.5 h-[4.2mm]"></td>
+            ) : (
+              <>
+                <td className="border border-slate-500 py-0.5 px-0.5 h-[4.2mm]"></td>
+                <td className="border border-slate-500 py-0.5 px-0.5 h-[4.2mm]"></td>
+                <td className="border border-slate-500 py-0.5 px-0.5 h-[4.2mm]"></td>
+              </>
+            )}
             <td className="border border-slate-500 py-0.5 px-1 h-[4.2mm]"></td>
           </tr>
         ))}
@@ -381,7 +411,7 @@ const CouncilReport = ({ analysis, className, students, teachers, stats, contain
             school={analysis.info.school}
             year={analysis.info.year}
             level={`${analysis.info.level} - ${className === 'all' ? 'جميع الأقسام' : className}`}
-            title="محضر مجلس القسم - لائحة التلاميذ"
+            title={`محضر مجلس القسم - لائحة التلاميذ (${mode === 'term1' ? 'الدورة الأولى' : 'الدورة الثانية'})`}
             pageInfo={`صفحة ${pageIdx + 1} من ${totalStudentPages + 1}`}
           />
 
@@ -413,7 +443,7 @@ const CouncilReport = ({ analysis, className, students, teachers, stats, contain
           school={analysis.info.school}
           year={analysis.info.year}
           level={`${analysis.info.level} - ${className === 'all' ? 'جميع الأقسام' : className}`}
-          title="محضر مجلس القسم - الإحصائيات والقرارات"
+          title={`محضر مجلس القسم - الإحصائيات والقرارات (${mode === 'term1' ? 'الدورة الأولى' : 'الدورة الثانية'})`}
           pageInfo={`صفحة ${totalStudentPages + 1} من ${totalStudentPages + 1}`}
         />
 
@@ -449,6 +479,7 @@ export default function App() {
   const [showTeachersTableModal, setShowTeachersTableModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
+  const [councilReportMode, setCouncilReportMode] = useState<'term1' | 'term2'>('term1');
   
   // Filters
   const [search, setSearch] = useState('');
@@ -673,11 +704,13 @@ export default function App() {
 
     setLoading(true);
     try {
-      // 1. Filter out students belonging to this class
-      const remainingStudents = students.filter(s => {
-        const sClass = (s.className || '').trim();
-        return sClass !== target;
-      });
+      // 1. Filter out students belonging to this class from the true source of truth (currentAnalysis.students)
+      const remainingStudents = currentAnalysis.students
+        .filter(s => {
+          const sClass = (s.className || '').trim();
+          return sClass !== target;
+        })
+        .map(s => ({ ...s }));
 
       // 2. Update the class list in info
       const currentClasses = currentAnalysis.info.class 
@@ -688,7 +721,7 @@ export default function App() {
       const newClassInfo = remainingClasses.join('، ');
       const newInfo = { ...currentAnalysis.info, class: newClassInfo };
       
-      // 3. Recalculate ranks for the remaining students
+      // 3. Recalculate ranks for the remaining students based on original grades
       const gradedStudents = remainingStudents.filter(s => s.grade !== null);
       gradedStudents.sort((a, b) => (b.grade || 0) - (a.grade || 0));
       gradedStudents.forEach((s, i) => { s.rank = i + 1; });
@@ -2158,6 +2191,20 @@ export default function App() {
                 محاضر مجالس الأقسام
               </h2>
               <div className="flex items-center gap-2">
+                <div className="flex bg-slate-100 p-1 rounded-xl mr-4">
+                  <button
+                    onClick={() => setCouncilReportMode('term1')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${councilReportMode === 'term1' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  >
+                    محاضرة الدورة الأولى
+                  </button>
+                  <button
+                    onClick={() => setCouncilReportMode('term2')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${councilReportMode === 'term2' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  >
+                    محاضرة الدورة الثانية
+                  </button>
+                </div>
                 <button
                   onClick={downloadCouncilPDF}
                   className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-all"
@@ -2189,6 +2236,7 @@ export default function App() {
                 teachers={(currentAnalysis.teachers || []).filter(t => selectedClass === 'all' || t.className === selectedClass)}
                 stats={stats}
                 containerId="councilSheetContainer"
+                mode={councilReportMode}
               />
             </div>
           </div>
@@ -2224,6 +2272,7 @@ export default function App() {
                   teachers={classTeachers}
                   stats={classStats}
                   containerId={`all-council-inner-${c}`}
+                  mode={councilReportMode}
                 />
               </div>
             );
